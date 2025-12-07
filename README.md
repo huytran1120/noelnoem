@@ -19,6 +19,13 @@ Chrome, Firefox, Safari (WebGL enabled)
 - ~60 FPS on desktop
 - Optimized for mobile
 
+
+
+
+
+
+
+
 Cây cao & to hơn
 trunkHeight: 4 → 6
 layers: 20 → 28
@@ -34,3 +41,9 @@ controls.target nâng từ y = 6 → y = 8
 Cây vẫn chưa “mịn” như mong muốn → mình có thể tiếp tục giảm voxelSize hoặc tăng layers.
 
 Đèn quá nhiều / quá sáng → mình chỉnh lại tỷ lệ random và emissiveIntensity cho bạn.
+
+ Trường hợp ảnh “có mà như không thấy”
+Một vài khả năng:
+Quá nhỏ: tăng spriteSize lên 4 hoặc 5.
+Đứng đúng trục cây → bị thân cây che một phần: thử dịch ra trước một chút:
+sprite.position.set(0, 2 * voxelSize, 1.5 * voxelSize);

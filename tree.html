@@ -41,7 +41,7 @@
         controls.enableDamping = true;
         controls.autoRotate = true;
         controls.autoRotateSpeed = 1.5; // gentle orbit
-        controls.target.set(0, 2, 0);
+        controls.target.set(0, 8, 0);
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
@@ -284,8 +284,8 @@
 
             const sprite = new THREE.Sprite(spriteMat);
 
-            // Kích thước ảnh (tùy chỉnh)
-            const spriteSize = 1.0; // tăng/giảm nếu muốn to/nhỏ hơn
+            //0
+            const spriteSize = 0.5; // tăng/giảm nếu muốn to/nhỏ hơn
             sprite.scale.set(spriteSize, spriteSize, spriteSize);
 
             // Gắn ảnh vào starMesh, nên vị trí (0, something, 0) là trên đỉnh sao
