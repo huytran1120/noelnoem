@@ -41,7 +41,7 @@
         controls.enableDamping = true;
         controls.autoRotate = true;
         controls.autoRotateSpeed = 1.5; // gentle orbit
-        controls.target.set(0, 6, 0);
+        controls.target.set(0, 2, 0);
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
@@ -64,7 +64,7 @@
         scene.add(greenFill);
 
         // Base voxel settings: higher density, smaller voxels (mịn hơn)
-        const voxelSize = 0.1;
+        const voxelSize = 0.2;
         const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
 
         // Materials
@@ -117,7 +117,7 @@
         // --- Build Scene ---
 
         // 1. Snowy Island (small snowy island)
-        const islandRadius = 9;
+        const islandRadius = 15;
         for (let x = -islandRadius; x <= islandRadius; x++) {
             for (let z = -islandRadius; z <= islandRadius; z++) {
                 const dist = Math.sqrt(x * x + z * z);
@@ -132,7 +132,7 @@
         }
 
         // 2. Tree Trunk (dark brown wooden trunk)
-        const trunkHeight = 4;
+        const trunkHeight = 6;
         for (let y = 1; y <= trunkHeight; y++) {
             createVoxel(0, y, 0, trunkMaterial);
             createVoxel(1, y, 0, trunkMaterial);
@@ -141,7 +141,7 @@
         }
 
         // 3. Foliage (layered, volumetric, stepped silhouette) – mịn & dày hơn
-        const layers = 20;
+        const layers = 30;
         const maxRadius = 7;
         const treeBaseY = trunkHeight + 1;
 
@@ -188,7 +188,7 @@
                             const mat = new THREE.MeshStandardMaterial({
                                 color,
                                 emissive: color,
-                                emissiveIntensity: 1.4,
+                                emissiveIntensity: 4.4,
                                 roughness: 0.25,
                                 metalness: 0.2
                             });
@@ -270,6 +270,30 @@
         starLight = new THREE.PointLight(0xffaa44, 2.2, 12);
         starLight.position.set(0, 0, 0);
         starMesh.add(starLight);
+
+        // --- Add your image above the star ---
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.load('me.png', (tex) => {
+            // Giúp màu ảnh hiển thị đúng hơn
+            tex.colorSpace = THREE.SRGBColorSpace || THREE.sRGBEncoding;
+
+            const spriteMat = new THREE.SpriteMaterial({
+                map: tex,
+                transparent: true
+            });
+
+            const sprite = new THREE.Sprite(spriteMat);
+
+            // Kích thước ảnh (tùy chỉnh)
+            const spriteSize = 1.0; // tăng/giảm nếu muốn to/nhỏ hơn
+            sprite.scale.set(spriteSize, spriteSize, spriteSize);
+
+            // Gắn ảnh vào starMesh, nên vị trí (0, something, 0) là trên đỉnh sao
+            sprite.position.set(0, 2 * voxelSize, 0); 
+            starMesh.add(sprite);
+        }, undefined, (err) => {
+            console.error('Error loading texture:', err);
+        });
 
         // 5. Presents at the base – neatly arranged voxel gifts
         const presentColors = [0xff5555, 0x55aaff, 0x55ff88, 0xffcc55];
