@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Christmas Tree</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050510; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'https://esm.run/three';
+        import { OrbitControls } from 'https://esm.run/three/examples/jsm/controls/OrbitControls.js';
+
+        // Scene Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050510);
+        scene.fog = new THREE.FogExp2(0x050510, 0.04); // light exponential fog
+
+        const camera = new THREE.PerspectiveCamera(
+            45,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            100
+        );
+        // 3/4 elevated view
+        camera.position.set(18, 16, 22);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(window.devicePixelRatio > 1 ? 2 : 1);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; // filmic tone mapping
+        renderer.toneMappingExposure = 1.1;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 1.5; // gentle orbit
+        controls.target.set(0, 6, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+        scene.add(ambientLight);
+
+        // Cool moonlight directional fill
+        const moonLight = new THREE.DirectionalLight(0xaaccff, 1.6);
+        moonLight.position.set(12, 25, -12);
+        moonLight.castShadow = true;
+        moonLight.shadow.mapSize.width = 2048;
+        moonLight.shadow.mapSize.height = 2048;
+        moonLight.shadow.camera.near = 0.5;
+        moonLight.shadow.camera.far = 60;
+        moonLight.shadow.bias = -0.0005;
+        scene.add(moonLight);
+
+        // Soft green fill so leaves pop
+        const greenFill = new THREE.PointLight(0x66ff88, 0.65, 25);
+        greenFill.position.set(-6, 7, 6);
+        scene.add(greenFill);
+
+        // Base voxel settings: higher density, smaller voxels (mịn hơn)
+        const voxelSize = 0.3;
+        const boxGeo = new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize);
+
+        // Materials
+        const snowMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            roughness: 0.85,
+            metalness: 0.05
+        });
+
+        const trunkMaterial = new THREE.MeshStandardMaterial({
+            color: 0x5c4033,
+            roughness: 0.9
+        });
+
+        // Base leaf material – vivid bright green
+        const leafBaseMaterial = new THREE.MeshStandardMaterial({
+            color: 0x22ff44,
+            roughness: 0.45,
+            metalness: 0.1,
+            emissive: 0x004400,
+            emissiveIntensity: 0.3
+        });
+
+        const baubleBaseMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff0000,
+            roughness: 0.2,
+            metalness: 0.6
+        });
+
+        const garlandMaterial = new THREE.MeshStandardMaterial({
+            color: 0xff4466,
+            roughness: 0.3,
+            metalness: 0.5
+        });
+
+        const fairyLights = [];
+        let starMesh;
+        let starLight;
+
+        // Helper to add a voxel
+        function createVoxel(x, y, z, material) {
+            const mesh = new THREE.Mesh(boxGeo, material);
+            mesh.position.set(x * voxelSize, y * voxelSize, z * voxelSize);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            scene.add(mesh);
+            return mesh;
+        }
+
+        // --- Build Scene ---
+
+        // 1. Snowy Island (small snowy island)
+        const islandRadius = 9;
+        for (let x = -islandRadius; x <= islandRadius; x++) {
+            for (let z = -islandRadius; z <= islandRadius; z++) {
+                const dist = Math.sqrt(x * x + z * z);
+                if (dist < islandRadius + (Math.random() - 0.5)) {
+                    let y = 0;
+                    if (dist < islandRadius - 1 && Math.random() > 0.82) y = 1; // small irregular bumps
+                    createVoxel(x, y, z, snowMaterial);
+                    // side skirt
+                    createVoxel(x, y - 1, z, snowMaterial);
+                }
+            }
+        }
+
+        // 2. Tree Trunk (dark brown wooden trunk)
+        const trunkHeight = 4;
+        for (let y = 1; y <= trunkHeight; y++) {
+            createVoxel(0, y, 0, trunkMaterial);
+            createVoxel(1, y, 0, trunkMaterial);
+            createVoxel(0, y, 1, trunkMaterial);
+            createVoxel(1, y, 1, trunkMaterial);
+        }
+
+        // 3. Foliage (layered, volumetric, stepped silhouette) – mịn & dày hơn
+        const layers = 20;
+        const maxRadius = 7;
+        const treeBaseY = trunkHeight + 1;
+
+        const lightColors = [0xff0000, 0x3388ff, 0xffaa00, 0xff00aa]; // red, blue, orange, pink
+        const baubleColors = [0xff3333, 0xffdd33, 0x33aaff, 0x33ff66];
+
+        function makeLeafMaterialVariant() {
+            const mat = leafBaseMaterial.clone();
+            const c = mat.color.clone();
+            const hsl = {};
+            c.getHSL(hsl);
+            const dh = (Math.random() - 0.5) * 0.03;
+            const ds = (Math.random() - 0.5) * 0.1;
+            const dl = (Math.random() - 0.5) * 0.08;
+            c.setHSL(
+                THREE.MathUtils.clamp(hsl.h + dh, 0, 1),
+                THREE.MathUtils.clamp(hsl.s + ds, 0, 1),
+                THREE.MathUtils.clamp(hsl.l + dl, 0, 1)
+            );
+            mat.color.copy(c);
+            return mat;
+        }
+
+        function makeBaubleMaterial() {
+            const mat = baubleBaseMaterial.clone();
+            const color = baubleColors[Math.floor(Math.random() * baubleColors.length)];
+            mat.color = new THREE.Color(color);
+            return mat;
+        }
+
+        // Foliage volume
+        for (let y = 0; y < layers; y++) {
+            const layerY = treeBaseY + y;
+            const progress = y / layers;
+            const radius = Math.max(1, Math.floor(maxRadius * (1 - progress * 0.9)));
+            for (let x = -radius; x <= radius; x++) {
+                for (let z = -radius; z <= radius; z++) {
+                    const dist = Math.sqrt(x * x + z * z);
+                    if (dist <= radius + 0.4) {
+                        const isSurface = dist > radius - 0.9 || y === layers - 1;
+                        // chance for fairy light on surface – nhiều đèn hơn
+                        if (isSurface && Math.random() < 0.22) {
+                            const color = lightColors[Math.floor(Math.random() * lightColors.length)];
+                            const mat = new THREE.MeshStandardMaterial({
+                                color,
+                                emissive: color,
+                                emissiveIntensity: 1.4,
+                                roughness: 0.25,
+                                metalness: 0.2
+                            });
+                            const mesh = createVoxel(x + 0.5, layerY, z + 0.5, mat);
+                            fairyLights.push({
+                                mesh,
+                                baseColor: new THREE.Color(color),
+                                speed: 2 + Math.random() * 3,
+                                offset: Math.random() * Math.PI * 2,
+                                type: Math.random() > 0.5 ? 'blink' : 'pulse'
+                            });
+                        } else if (isSurface && Math.random() < 0.12) {
+                            // glossy baubles on surface
+                            const mat = makeBaubleMaterial();
+                            createVoxel(x + 0.5, layerY, z + 0.5, mat);
+                        } else {
+                            // normal leaf voxel with slight color variation
+                            const mat = makeLeafMaterialVariant();
+                            createVoxel(x + 0.5, layerY, z + 0.5, mat);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3b. Thin voxel garlands spiraling around the tree
+        const garlandTurns = 4.5;
+        const garlandPoints = 110;
+        for (let i = 0; i < garlandPoints; i++) {
+            const t = i / (garlandPoints - 1);
+            const angle = t * garlandTurns * Math.PI * 2;
+            const radius = (maxRadius - 1.5) * (1 - t * 0.9);
+            const y = treeBaseY + t * (layers - 2);
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            createVoxel(x + 0.5, y, z + 0.5, garlandMaterial);
+        }
+
+        // 4. The Star – snug on top, no gap
+        const starY = treeBaseY + layers; // just above top foliage layer
+        const starMat = new THREE.MeshStandardMaterial({
+            color: 0xffff66,
+            emissive: 0xffee66,
+            emissiveIntensity: 2.2,
+            roughness: 0.3,
+            metalness: 0.3
+        });
+
+        starMesh = new THREE.Group();
+
+        const starParts = [];
+        for (let i = 0; i < 5; i++) {
+            starParts.push(new THREE.Mesh(boxGeo, starMat));
+        }
+        // simple 3D cross/star shape
+        starParts[0].position.set(0, voxelSize, 0);
+        starParts[1].position.set(0, -voxelSize, 0);
+        starParts[2].position.set(voxelSize, 0, 0);
+        starParts[3].position.set(-voxelSize, 0, 0);
+        starParts[4].position.set(0, 0, 0);
+
+        starParts.forEach(p => {
+            p.castShadow = true;
+            p.receiveShadow = true;
+            starMesh.add(p);
+        });
+
+        // đặt sao ngay trên đỉnh, không có khoảng trống rõ ràng
+        const treeCenterX = 0.75;
+        const treeCenterZ = 0.75;
+        starMesh.position.set(
+            treeCenterX * voxelSize,
+            starY * voxelSize,
+            treeCenterZ * voxelSize
+        );
+        scene.add(starMesh);
+
+        // warm star light (orange/yellow contrast)
+        starLight = new THREE.PointLight(0xffaa44, 2.2, 12);
+        starLight.position.set(0, 0, 0);
+        starMesh.add(starLight);
+
+        // 5. Presents at the base – neatly arranged voxel gifts
+        const presentColors = [0xff5555, 0x55aaff, 0x55ff88, 0xffcc55];
+        const ribbonColor = 0xffffff;
+
+        function createPresent(baseX, baseZ, size = 2) {
+            const baseColor = presentColors[Math.floor(Math.random() * presentColors.length)];
+            const baseMat = new THREE.MeshStandardMaterial({
+                color: baseColor,
+                roughness: 0.35,
+                metalness: 0.4
+            });
+            const ribbonMat = new THREE.MeshStandardMaterial({
+                color: ribbonColor,
+                roughness: 0.2,
+                metalness: 0.6
+            });
+
+            const h = 2;
+            for (let x = 0; x < size; x++) {
+                for (let z = 0; z < size; z++) {
+                    for (let y = 0; y < h; y++) {
+                        createVoxel(baseX + x, 1 + y, baseZ + z, baseMat);
+                    }
+                }
+            }
+
+            // simple cross ribbon on top
+            for (let x = 0; x < size; x++) {
+                createVoxel(
+                    baseX + x,
+                    1 + h,
+                    baseZ + Math.floor(size / 2),
+                    ribbonMat
+                );
+            }
+            for (let z = 0; z < size; z++) {
+                createVoxel(
+                    baseX + Math.floor(size / 2),
+                    1 + h,
+                    baseZ + z,
+                    ribbonMat
+                );
+            }
+        }
+
+        createPresent(-2, -4, 2);
+        createPresent(3, -3, 2);
+        createPresent(-4, 3, 3);
+
+        // --- Falling Snow System (more and finer snow) ---
+        const snowCount = 900; // nhiều hơn
+        const snowGeo = new THREE.BoxGeometry(0.10, 0.10, 0.10); // nhỏ hơn -> mịn hơn
+        const snowMatInst = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.85
+        });
+        const snowMesh = new THREE.InstancedMesh(snowGeo, snowMatInst, snowCount);
+        snowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        scene.add(snowMesh);
+
+        const snowData = [];
+        const dummy = new THREE.Object3D();
+
+        for (let i = 0; i < snowCount; i++) {
+            snowData.push({
+                x: (Math.random() - 0.5) * 26,
+                y: Math.random() * 22,
+                z: (Math.random() - 0.5) * 26,
+                speed: 0.25 + Math.random() * 0.6,
+                rotSpeedX: (Math.random() - 0.5) * 0.06,
+                rotSpeedY: (Math.random() - 0.5) * 0.06,
+                rotX: Math.random() * Math.PI * 2,
+                rotY: Math.random() * Math.PI * 2
+            });
+        }
+
+        // Resize Handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation Loop
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+
+            controls.update();
+
+            // 1. Animate fairy lights – mixed blinking and pulsing (nhiều đèn nhấp nháy)
+            fairyLights.forEach(light => {
+                let intensity;
+                if (light.type === 'blink') {
+                    intensity = Math.sin(time * light.speed + light.offset) > 0 ? 2.0 : 0.15;
+                } else {
+                    intensity =
+                        0.7 +
+                        1.6 *
+                            (0.5 + 0.5 * Math.sin(time * light.speed + light.offset));
+                }
+                light.mesh.material.emissiveIntensity = intensity;
+            });
+
+            // 2. Animate star – gently pulsing and rotating
+            const starPulse = 1 + 0.25 * Math.sin(time * 3);
+            starMesh.scale.setScalar(starPulse);
+            starMesh.rotation.y = time * 0.4;
+            starLight.intensity = 2 + 0.6 * Math.sin(time * 3);
+
+            // 3. Animate snow – more, finer, soft drift
+            for (let i = 0; i < snowCount; i++) {
+                const flake = snowData[i];
+
+                flake.y -= flake.speed * 0.03;
+                flake.x += Math.sin(time * 0.35 + i * 0.2) * 0.006;
+                flake.z += Math.cos(time * 0.25 + i * 0.3) * 0.004;
+
+                if (flake.y < -1.5) {
+                    flake.y = 22;
+                    flake.x = (Math.random() - 0.5) * 26;
+                    flake.z = (Math.random() - 0.5) * 26;
+                }
+
+                flake.rotX += flake.rotSpeedX;
+                flake.rotY += flake.rotSpeedY;
+
+                dummy.position.set(flake.x, flake.y, flake.z);
+                dummy.rotation.set(flake.rotX, flake.rotY, 0);
+                dummy.updateMatrix();
+                snowMesh.setMatrixAt(i, dummy.matrix);
+            }
+            snowMesh.instanceMatrix.needsUpdate = true;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
