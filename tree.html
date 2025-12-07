@@ -41,7 +41,7 @@
         controls.enableDamping = true;
         controls.autoRotate = true;
         controls.autoRotateSpeed = 1.5; // gentle orbit
-        controls.target.set(0, 8, 0);
+        controls.target.set(0, 5, 0);
 
         // Lighting
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
@@ -274,9 +274,7 @@
         // --- Add your image above the star ---
         const textureLoader = new THREE.TextureLoader();
         textureLoader.load('me.png', (tex) => {
-            // Giúp màu ảnh hiển thị đúng hơn
             tex.colorSpace = THREE.SRGBColorSpace || THREE.sRGBEncoding;
-
             const spriteMat = new THREE.SpriteMaterial({
                 map: tex,
                 transparent: true
@@ -345,7 +343,7 @@
         createPresent(-4, 3, 3);
 
         // --- Falling Snow System (more and finer snow) ---
-        const snowCount = 900; // nhiều hơn
+        const snowCount = 1900; // nhiều hơn
         const snowGeo = new THREE.BoxGeometry(0.10, 0.10, 0.10); // nhỏ hơn -> mịn hơn
         const snowMatInst = new THREE.MeshBasicMaterial({
             color: 0xffffff,
