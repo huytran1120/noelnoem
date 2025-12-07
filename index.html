@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voxel Christmas Tree</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: Arial, sans-serif;
+            background: #050510;
+            color: #fff;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .sidebar {
+            width: 300px;
+            padding: 20px;
+            background: rgba(0,0,0,0.5);
+            overflow-y: auto;
+        }
+        .content {
+            flex: 1;
+        }
+        h1 { color: #22ff44; }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #ff4466;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>🎄 Voxel Tree</h1>
+            <p>Interactive 3D Christmas Visualization</p>
+            <h3>Controls</h3>
+            <ul>
+                <li>🖱️ Drag to rotate</li>
+                <li>🔍 Scroll to zoom</li>
+                <li>Auto-rotate enabled</li>
+            </ul>
+            <a href="tree.html" class="btn">View Full Screen</a>
+        </div>
+        <div class="content">
+            <iframe src="tree.html" style="width:100%; height:100%; border:none;"></iframe>
+        </div>
+    </div>
+</body>
+</html>

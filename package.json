@@ -1,0 +1,9 @@
+{
+  "name": "voxel-christmas-tree",
+  "version": "1.0.0",
+  "description": "Interactive 3D Voxel Christmas Tree",
+  "license": "MIT",
+  "author": "Your Name",
+  "homepage": "https://github.com/huytran1120/noelnoem",
+  "keywords": ["3d", "christmas", "three.js", "voxel"]
+}
